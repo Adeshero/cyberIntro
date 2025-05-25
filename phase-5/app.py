@@ -59,8 +59,23 @@ try:
     from ecc import ECCEncryption
     
     # Import integrity checking from phase-4
-    from integrity_checker import IntegrityChecker, DigitalSignature
+    from integrity_checker import IntegrityChecker
     from tampering_detector import TamperingDetector
+    
+    # Create placeholder DigitalSignature class since it's missing
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
+
+    class DigitalSignature:
+        @staticmethod
+        def generate_key_pair():
+            # Generate RSA key pair
+            private_key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=2048
+            )
+            public_key = private_key.public_key()
+            return private_key, public_key
     
     # Import report generator from current phase
     from report_generator import EncryptionReportGenerator
@@ -88,6 +103,9 @@ app.config['SESSION_COOKIE_SECURE'] = True  # Only send cookies over HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access to cookies
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # SameSite cookie attribute
 app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(hours=1)  # Session timeout
+
+# Set upload folder
+app.config['UPLOAD_FOLDER'] = os.path.join(tempfile.gettempdir(), 'ai_encryption_uploads')
 
 # Initialize CSRF protection
 csrf = CSRFProtect(app)
@@ -180,18 +198,21 @@ def encrypt():
                     with open(encrypted_filepath, 'wb') as f:
                         f.write(encrypted_data)
                         
+                    # Create IntegrityChecker instance
                     integrity_checker = IntegrityChecker()
+                    
+                    # Calculate hash and create metadata
                     metadata = {
                         'algorithm': algorithm,
                         'hash': integrity_checker.calculate_hash(encrypted_data),
                         'timestamp': datetime.datetime.now().isoformat()
                     }
                     
-                    # Save metadata
+                    # Save metadata to a JSON file
                     with open(encrypted_filepath + '.meta', 'w') as f:
                         json.dump(metadata, f)
                         
-                    # Save the encrypted file for download
+                    # Store the encrypted file path
                     download_path = encrypted_filepath
                 else:
                     # Save the encrypted file for download
